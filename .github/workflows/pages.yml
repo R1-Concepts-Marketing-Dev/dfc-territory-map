@@ -15,12 +15,23 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deploy1.outputs.page_url || steps.deploy2.outputs.page_url || steps.deploy3.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
-      - id: deployment
+      # deploy-pages transiently fails with "Deployment failed, try again later"
+      # (~50% of first attempts on this repo). Retry in-run so a flake doesn't
+      # fail the workflow — GitHub only emails when ALL three attempts fail.
+      - id: deploy1
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - id: deploy2
+        if: steps.deploy1.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - id: deploy3
+        if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
         uses: actions/deploy-pages@v4
